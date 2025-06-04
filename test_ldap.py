@@ -1,12 +1,13 @@
-
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 from ldap3 import Server, Connection, ALL, SUBTREE, NTLM
 
 
 class settings:
-    LDAP_SERVER = '10.229.253.34'
+    LDAP_SERVER = '10.10.10.10'
     LDAP_PORT = 636
-    LDAP_BASE_DN = 'OU=YiHaiKerryGroup,dc=wilmar,dc=cn'
-    LDAP_BASE_DOMAIN = 'wilmar' 
+    LDAP_BASE_DN = 'OU=OU,dc=domain,dc=cn'
+    LDAP_BASE_DOMAIN = 'domain' 
 
 
 
@@ -66,4 +67,4 @@ def ldap_verify(username: str, password: str) -> tuple:
         return (False, None, None, None, f"LDAP连接失败: {str(e)}")
     
 
-print(ldap_verify('dengjingren','djrenbb321!'))
+print(ldap_verify('user','password'))
