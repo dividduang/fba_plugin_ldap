@@ -1,0 +1,8 @@
+[plugin]
+summary = 'LDAP'
+version = '0.0.1'
+description = '通过 LDAP 的方式登录系统'
+author = 'DAVID'
+
+[app]
+router = ['v1']
