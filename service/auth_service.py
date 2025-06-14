@@ -215,8 +215,6 @@ class AuthService:
             # 配置LDAP服务器
             ldap_server = Server(
                 host=settings.LDAP_SERVER,
-                port=settings.LDAP_PORT,  # LDAPS端口
-                use_ssl=True,
                 get_info=ALL
             )
 
@@ -225,9 +223,7 @@ class AuthService:
                 ldap_server,
                 user=f'{settings.LDAP_BASE_DOMAIN}\\{username}',
                 password=password,
-                authentication=NTLM,
                 auto_bind=True,
-                raise_exceptions=False
             )
 
             if not conn.bound:
