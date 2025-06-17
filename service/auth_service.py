@@ -32,6 +32,7 @@ from backend.utils.timezone import timezone
 
 from ldap3 import Server, Connection, ALL, SUBTREE, NTLM
 
+
 class AuthService:
     """认证服务类"""
 
@@ -124,6 +125,7 @@ class AuthService:
         """
         # 先进行LDAP认证
         ldap_result = await self.ldap_verify(obj.username, obj.password)
+        log.info(f"LDAP verification result: {ldap_result}")  # (True, 'dengjingren@cn.wilmar-intl.com', 'dengjingren', '邓景仁', '深圳南海粮食工业有限公司', '财务部IT 组', '登录成功')
         if not ldap_result[0]:
             raise errors.AuthorizationError(msg=ldap_result[4])
 
@@ -208,54 +210,77 @@ class AuthService:
             )
             return data
 
-
     @staticmethod
     async def ldap_verify(username: str, password: str) -> tuple:
         try:
-            # 配置LDAP服务器
-            ldap_server = Server(
-                host=settings.LDAP_SERVER,
-                get_info=ALL
-            )
+            # 1. 先用管理账号查找用户信息
+            ad_list = [
+                'distinguishedName',  # 用户唯一标识
+                'displayName',        # 用户名中文名
+                'telephoneNumber',   # 手机号
+                'sAMAccountName',    # 用户名
+                'mail',              # 邮箱
+                'company',           # 公司
+                'department',        # 部门
+            ]
 
-            # 创建连接并尝试绑定
-            conn = Connection(
-                ldap_server,
-                user=f'{settings.LDAP_BASE_DOMAIN}\\{username}',
-                password=password,
-                auto_bind=True,
-            )
+            server = Server(settings.LDAP_SERVER, get_info=ALL)
+            try:
+                conn = Connection(
+                    server,
+                    user=settings.LDAP_Bind_DN,
+                    password=settings.LDAP_Bind_DN_PASSWORD,
+                    auto_bind=True
+                )
+                search_filter = f'(sAMAccountName={username})'
+                conn.search(
+                    search_base=settings.LDAP_Base_DN,
+                    search_filter=search_filter,
+                    attributes=ad_list,
+                    paged_size=10,
+                    search_scope=SUBTREE
+                )
+                user_info = None
+                for entry in conn.response:
+                    if entry.get('dn'):
+                        user_info = entry.get('attributes')
+                        break
+                if not user_info or not user_info.get('distinguishedName'):
+                    from backend.common.log import log
+                    log.warning(f"User not found in LDAP: {username}")
+                    return (False, None, None, None, "LDAP中未找到该用户")
+            except Exception as e:
+                from backend.common.log import log
+                log.error(f'LDAP管理账号查找用户失败: {e}')
+                return (False, None, None, None, f"LDAP连接失败: {str(e)}")
 
-            if not conn.bound:
-                log.warning(f"LDAP bind failed for user: {username}")
+            user_dn = user_info['distinguishedName']
+
+            # 2. 用用户DN和密码bind验证密码
+            try:
+                user_conn = Connection(
+                    server,
+                    user=user_dn,
+                    password=password,
+                    auto_bind=True
+                )
+                if not user_conn.bound:
+                    log.warning(f"LDAP bind failed for user: {username}")
+                    return (False, None, None, None, "用户名或密码错误")
+            except Exception as e:
+                log.warning(f"LDAP bind failed for user: {username}, error: {e}")
                 return (False, None, None, None, "用户名或密码错误")
 
-            log.info(f"LDAP connection established for user: {username}")
-
-            # 搜索用户信息
-            search_result = conn.search(
-                search_base=settings.LDAP_BASE_DN,
-                search_filter=f'(sAMAccountName={username})',
-                search_scope=SUBTREE,
-                attributes=['cn', 'givenName', 'mail', 'sAMAccountName']
+            # 3. 返回用户信息
+            return (
+                True,
+                user_info.get("mail", ""),
+                user_info.get("sAMAccountName", ""),
+                user_info.get("displayName", ""),
+                user_info.get("company", ""),
+                user_info.get("department", ""),
+                "登录成功"
             )
-
-            if not search_result or len(conn.response) == 0:
-                log.warning(f"User not found in LDAP: {username}")
-                return (False, None, None, None, "LDAP中未找到该用户")
-
-            entry = conn.response[0]
-            attr_dict = entry['attributes']
-
-            log.info(f"Found user in LDAP: {entry['dn']}")
-
-            # 返回成功结果
-            return (True,
-                   attr_dict.get("mail", ""),
-                   attr_dict.get("sAMAccountName", ""),
-                   attr_dict.get("givenName", ""),
-                   "登录成功")
-
         except Exception as e:
             log.error(f"LDAP verification error: {str(e)}")
             return (False, None, None, None, f"LDAP连接失败: {str(e)}")
@@ -381,6 +406,5 @@ class AuthService:
             ]
             for prefix in key_prefix:
                 await redis_client.delete_prefix(prefix)
-
 
 auth_service: AuthService = AuthService()

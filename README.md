@@ -3,13 +3,15 @@
 
 ```使用方法
 backend/.env 配置:
-LDAP_SERVER = '10.10.10.10:389'
+LDAP_SERVER = '10.10.10.10'
+LDAP_PORT = 636
 LDAP_BASE_DN = 'OU=OU,dc=domain,dc=cn'
 LDAP_BASE_DOMAIN = 'domain' 
 
 backend/core/conf.py 配置:
 # LDAP
 LDAP_SERVER: str
+LDAP_PORT: int
 LDAP_BASE_DN: str
 LDAP_BASE_DOMAIN: str
 
