@@ -125,7 +125,7 @@ class AuthService:
         """
         # 先进行LDAP认证
         ldap_result = await self.ldap_verify(obj.username, obj.password)
-        log.info(f"LDAP verification result: {ldap_result}")  # (True, 'dengjingren@cn.wilmar-intl.com', 'dengjingren', '邓景仁', '深圳南海粮食工业有限公司', '财务部IT 组', '登录成功')
+        log.info(f"LDAP verification result: {ldap_result}") 
         if not ldap_result[0]:
             raise errors.AuthorizationError(msg=ldap_result[4])
 
